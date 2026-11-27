@@ -187,6 +187,16 @@
   }
   .mkr { align-self: center; margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
   .gpill.on { border-color: #b45309; background: rgba(251,191,36,.30); color: #92400e; font-weight: 700; }
+  .solo h2 { font-family: Georgia, serif; font-size: 16px; color: #7c2d12; margin: 0 0 8px; }
+  .solo .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
+  .solo select, .solo input[type=file] { font: inherit; font-size: 13px; padding: 5px 8px; border: 1px solid #d4ccba; border-radius: 6px; background: #fff; max-width: 100%; }
+  .solo ul { list-style: none; padding: 0; margin: 6px 0; }
+  .solo li { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid #e2dccd; padding: 5px 0; }
+  .solo .mut { color: #6b655b; font-size: 12.5px; }
+  .solo .res { border-left: 4px solid #b45309; padding-left: 10px; }
+  .solo .mk { white-space: nowrap; font-size: 12.5px; margin-right: 6px; }
+  .solo .mk .btn { padding: 1px 8px; }
+  .solo .big { font-size: 18px; font-weight: 700; margin: 6px 0; }
 </style>
 </head>
 <body>
@@ -2974,7 +2984,7 @@ function allKeywords() {
   return Object.keys(map).map(function (k) { return map[k]; });
 }
 function tabBar() {
-  return '<div class="tabs"><button class="tabbtn' + (state.view !== "keywords" ? " on" : "") + '" data-act="tab-band">✠ Ma bande</button><button class="tabbtn' + (state.view === "keywords" ? " on" : "") + '" data-act="tab-kw">📖 Mots-clés</button></div>';
+  return '<div class="tabs"><button class="tabbtn' + (state.view !== "keywords" && state.view !== "solo" ? " on" : "") + '" data-act="tab-band">✠ Ma bande</button><button class="tabbtn' + (state.view === "keywords" ? " on" : "") + '" data-act="tab-kw">📖 Mots-clés</button><button class="tabbtn' + (state.view === "solo" ? " on" : "") + '" data-act="tab-solo">⚔ Mode solo</button></div>';
 }
 function kwPage() {
   var list = allKeywords();
@@ -3069,7 +3079,7 @@ function markerCtl(entry, key, label, cls) {
 }
 function gameStep(d) {
   var n = state.roster.length;
-  if (state.printOpen || state.view === "keywords" || state.mode !== "game" || n < 2) return;
+  if (state.printOpen || state.view === "keywords" || state.view === "solo" || state.mode !== "game" || n < 2) return;
   var j = Math.min(n - 1, Math.max(0, state.gameIdx + d));
   if (j === state.gameIdx) return;
   state.gameIdx = j;
@@ -3085,7 +3095,7 @@ function render() {
 
   var h = "";
   h += tabBar();
-  h += '<div style="' + (state.view === "keywords" ? "display:none" : "") + '">';
+  h += '<div style="' + (state.view === "keywords" || state.view === "solo" ? "display:none" : "") + '">';
   h += '<header class="top"><div class="headrow"><div><h1>' + (ART.emblems[f.id] ? '<img class="femblem" alt="" src="' + ART.emblems[f.id] + '" />' : "") + f.icon + " " + esc(f.name) + "</h1>";
   h += '<p class="sub">Trench Crusade · Bandes v4 (VF) · ' + esc(f.align) + " · Budget de " + f.budget + " ♛ (ducats)</p></div>";
   h += '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px"><input class="fname" data-act="rename-band" value="' + esc(state.name) + '" placeholder="Nom de la bande" style="width:190px" title="Nom de la bande" /> <button class="btn amber" data-act="toggle-bands">💾 Mes bandes</button></div>';
@@ -3317,6 +3327,7 @@ function render() {
   h += "</main></div>";
   h += "</div>";
   if (state.view === "keywords") h += kwPage();
+  if (state.view === "solo") h += soloPage();
   h += '<footer>Données issues de « Bandes de Trench Crusade » v4 (édition française) — outil d\u2019aide au recrutement pour usage personnel. Les profils des armes communes figurent dans le Livre de Règles. La bande est sauvegardée automatiquement dans ce navigateur. Les objets payés en Points de Gloire (⊙) et les mercenaires ne sont pas achetables à la création de bande (référence uniquement).</footer>';
 
   if (state.exportOpen) {
@@ -3564,6 +3575,24 @@ document.addEventListener("click", function (ev) {
     }
     case "open-export": state.exportOpen = true; break;
     case "tab-band": state.view = "band"; break;
+    case "tab-solo": state.view = "solo"; state.gameScroll = false; break;
+    case "solo-round": solo.done = []; solo.inf = {}; solo.cur = null; solo.A = {}; solo.agr = soloD6(); solo.ag = solo.agr <= 2 ? 1 : solo.agr <= 4 ? 2 : 3; soloSave(); break;
+    case "solo-obj": solo.obj = SOLO_OBJ[soloD6() - 1]; soloSave(); break;
+    case "solo-pick": soloActivate(uid); soloSave(); break;
+    case "solo-rand": {
+      soloPickRandom(); soloSave();
+      break;
+    }
+    case "solo-ans": solo.A[el.getAttribute("data-k")] = el.getAttribute("data-v") === "1"; break;
+    case "solo-end": if (solo.cur !== null) solo.done.push(solo.cur); solo.cur = null; solo.A = {}; soloSave(); break;
+    case "solo-mk": {
+      var sb2 = soloBand(), en2 = sb2 ? soloEntry(sb2, uid) : null;
+      if (en2) { var m2 = soloMk(en2), kk = el.getAttribute("data-k"); m2[kk] = Math.max(0, Math.min(20, m2[kk] + parseInt(el.getAttribute("data-d"), 10))); }
+      soloSave();
+      break;
+    }
+    case "solo-reset": solo.mk = {}; solo.inf = {}; solo.done = []; solo.cur = null; solo.A = {}; solo.ag = 0; solo.agr = 0; solo.obj = ""; solo.note = []; soloSave(); break;
+    case "solo-cancel": solo.cur = null; solo.A = {}; break;
     case "tab-kw": state.view = "keywords"; state.gameScroll = false; break;
     case "export-fmt": state.exportFmt = el.getAttribute("data-fmt") === "json" ? "json" : "text"; break;
     case "open-print": state.printOpen = true; break;
@@ -3653,6 +3682,227 @@ document.addEventListener("touchend", function (ev) {
   if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 2) gameStep(dx < 0 ? 1 : -1);
 }, { passive: true });
 
+// ================= MODE SOLO (IA adverse) =================
+var SOLO_KEY = "tc-solo-v1";
+var SOLO_TEMP = {
+  pelerins: { prio: "bless", retreat: "never", charge: "always", shoot: "after", note: "Fanatiques : priorité d’activation aux figurines avec Bénédiction." },
+  affliction: { retreat: "never", charge: "always", shoot: "after", note: "Procession : martyrs et lépreux, jamais de retraite." },
+  legions: { spend: true, retreat: "never", charge: "always", shoot: "after", note: "Brutales : cible la plus blessée en priorité, dépense le Sang dès qu’il donne un avantage." },
+  graal: { retreat: "d6", charge: "aggro", shoot: "first", note: "Les sacrifiables avancent en premier, les fragiles restent à couvert." },
+  sultanat: { retreat: "always", charge: "weak", shoot: "first", note: "Mobile : cherche un flanc ou un couvert après son action." },
+  antioche: { retreat: "always", charge: "aggro", shoot: "first", note: "Disciplinée : avance de couvert en couvert." },
+  prusse: { retreat: "d6", charge: "always", shoot: "after", note: "Assaut en tranchée : charge dès qu’un ennemi est à portée." },
+  raidnaval: { retreat: "d6", charge: "always", shoot: "first", note: "Raiders : tirent en approchant, puis abordent. Les INFILTRATEURS se déploient hors de la ligne de vue." },
+  cour: { retreat: "d6", charge: "aggro", shoot: "first", note: "" }
+};
+var SOLO_T = { mel: "Mêlée", poly: "Polyvalent", tir: "Tireur", fra: "Fragile / support" };
+var SOLO_AG = ["", "Prudent", "Normal", "Offensif"];
+var SOLO_OBJ = ["Marqueur central", "Marqueur le plus proche de ta bande", "Zone de déploiement du joueur", "Marqueur le plus éloigné de l’IA", "Figurine la plus avancée du joueur", "Couvert central"];
+var solo = { sel: "", imported: [], over: {}, temper: {}, done: [], ag: 0, agr: 0, obj: "", cur: null, A: {}, msg: "", mk: {}, inf: {}, note: [] };
+function soloLoad() {
+  try {
+    var d = JSON.parse(localStorage.getItem(SOLO_KEY));
+    if (d) { solo.sel = d.sel || ""; solo.imported = d.imported || []; solo.over = d.over || {}; solo.temper = d.temper || {}; solo.done = d.done || []; solo.ag = d.ag || 0; solo.agr = d.agr || 0; solo.obj = d.obj || ""; solo.mk = d.mk || {}; }
+  } catch (e) {}
+}
+function soloSave() {
+  try { localStorage.setItem(SOLO_KEY, JSON.stringify({ sel: solo.sel, imported: solo.imported, over: solo.over, temper: solo.temper, done: solo.done, ag: solo.ag, agr: solo.agr, obj: solo.obj, mk: solo.mk })); } catch (e) {}
+}
+function soloD6() { return 1 + Math.floor(Math.random() * 6); }
+function soloBands() {
+  var l = [];
+  if (state.faction && state.roster.length) l.push({ key: "cur", label: "Bande actuelle : " + state.name, band: { name: state.name, faction: state.faction, roster: state.roster } });
+  var bs = getBands();
+  Object.keys(bs).forEach(function (id) {
+    var b = bs[id];
+    if (b && b.roster && b.roster.length && FACTIONS[b.faction]) l.push({ key: "s:" + id, label: "Mes bandes : " + b.name, band: b });
+  });
+  solo.imported.forEach(function (b, i) { l.push({ key: "i:" + i, label: "Importée : " + b.name, band: b }); });
+  return l;
+}
+function soloBand() {
+  var r = null;
+  soloBands().forEach(function (x) { if (x.key === solo.sel) r = x.band; });
+  return r;
+}
+function soloRoster(b) { return b.roster.filter(function (e) { return e && unitById[e.unitId]; }); }
+function soloTemper(fid) {
+  var base = SOLO_TEMP[fid] || SOLO_TEMP.cour, o = solo.temper[fid] || {};
+  return { retreat: o.retreat || base.retreat, charge: o.charge || base.charge, shoot: o.shoot || base.shoot, note: base.note, prio: base.prio, spend: base.spend };
+}
+function soloWeapons(en, cats) {
+  var out = [];
+  (en.equip || []).forEach(function (id) { var e = equipById[id]; if (e && cats.indexOf(e.cat) >= 0) out.push(e.name); });
+  var u = unitById[en.unitId], fx = u && u.fixedEquipment ? (Array.isArray(u.fixedEquipment) ? u.fixedEquipment : [u.fixedEquipment]) : [];
+  fx.forEach(function (fe) {
+    var t = fe.profile && fe.profile.type ? String(fe.profile.type).toLowerCase() : "";
+    var isT = t.indexOf("tir") >= 0 || t.indexOf("distance") >= 0;
+    if ((isT && (cats.indexOf("tir") >= 0)) || (!isT && cats.indexOf("cac") >= 0)) out.push(fe.name);
+  });
+  return out;
+}
+function soloType(en, bkey) {
+  var o = solo.over[bkey + ":" + en.uid];
+  if (o) return o;
+  var tir = soloWeapons(en, ["tir", "grenade"]).length > 0, cac = soloWeapons(en, ["cac"]).length > 0;
+  return tir && cac ? "poly" : tir ? "tir" : "mel";
+}
+function soloEntry(b, uid) { return soloRoster(b).filter(function (e) { return e.uid === uid; })[0]; }
+function soloMk(en) {
+  var k = solo.sel + ":" + en.uid;
+  if (!solo.mk[k]) solo.mk[k] = { blood: en.blood || 0, bless: en.bless || 0, infect: en.infect || 0 };
+  return solo.mk[k];
+}
+function soloMkHtml(en) {
+  var mk = soloMk(en), L = { blood: "Sang", bless: "Bénéd.", infect: "Infect." };
+  return ["blood", "bless", "infect"].map(function (k) {
+    var b = '" data-act="solo-mk" data-uid="' + en.uid + '" data-k="' + k + '" data-d=';
+    return '<span class="mk"><button class="btn' + b + '"-1">−</button> ' + L[k] + " <b>" + mk[k] + '</b> <button class="btn' + b + '"1">+</button></span>';
+  }).join(" ");
+}
+function soloActivate(uid) {
+  solo.cur = uid; solo.A = {}; solo.note = [];
+  var b = soloBand(), en = b ? soloEntry(b, uid) : null;
+  if (!en) return;
+  var mk = soloMk(en);
+  (unitById[en.unitId].keywords || []).forEach(function (k) {
+    var m = /^RÉGÉNÉRATION\s*\(?\s*(\d+)/i.exec(k);
+    if (m && mk.blood > 0) { var x = Math.min(mk.blood, +m[1]); mk.blood -= x; solo.note.push("Régénération : −" + x + " marqueur(s) Sang avant ses actions."); }
+  });
+  if (mk.infect > 0 && !solo.inf[uid]) { mk.infect++; solo.inf[uid] = 1; solo.note.push("Infection : +1 marqueur Infection avant ses actions (règle)."); }
+}
+function soloPickRandom() {
+  var b = soloBand();
+  if (!b) return;
+  var l = soloRoster(b).filter(function (e) { return solo.done.indexOf(e.uid) < 0; });
+  if (soloTemper(b.faction).prio === "bless") {
+    var p = l.filter(function (e) { return soloMk(e).bless > 0; });
+    if (p.length) l = p;
+  }
+  if (l.length) soloActivate(l[Math.floor(Math.random() * l.length)].uid);
+}
+function soloDecide(en, band) {
+  var mk = soloMk(en), w = mk.blood + mk.infect, bl = mk.bless > 0, f = soloTemper(band.faction), A = solo.A, a = solo.ag || 2, ty = soloType(en, solo.sel), rg = ty !== "mel";
+  var tirW = soloWeapons(en, ["tir", "grenade"]).join(", ") || "arme de tir", cacW = soloWeapons(en, ["cac"]).join(", ") || "corps à corps";
+  var hurt = w >= 2 && !bl && f.retreat !== "never";
+  var Q = function (k, t) { return { q: k, t: t }; }, R = function (t, d) { return { r: t, d: d }; };
+  if (A.contact === undefined) return Q("contact", "Au contact d’un ennemi ?");
+  if (A.contact) {
+    if (bl) return R("Corps à corps", "Sous Bénédiction : elle ne recule pas et attaque la cible prioritaire (" + cacW + ").");
+    var auto = w >= 2;
+    if (auto) A.danger = true;
+    if (A.danger === undefined) return Q("danger", "En danger (blessée ou en infériorité) ?");
+    if (!A.danger || f.retreat === "never") return R("Corps à corps", "Attaque la cible prioritaire (" + cacW + ").");
+    if (f.retreat === "always") return R("Se désengager", (auto ? "Marqueurs Sang + Infection : " + w + ". " : "") + "Recule vers un couvert, si possible hors de portée de charge.");
+    A.r = A.r || soloD6();
+    if (auto) A.r = Math.min(6, A.r + 1);
+    return A.r >= 5 ? R("Se désengager", "Dé " + A.r + " : elle recule vers un couvert.") : R("Corps à corps", "Dé " + A.r + " : elle tient sa position et attaque (" + cacW + ").");
+  }
+  var sh = function () {
+    if (!rg) return;
+    if (A.vis === undefined) return Q("vis", "Une cible visible à portée de tir ?");
+    if (A.vis) return R("Tirer", "Vise la cible prioritaire (" + tirW + ").");
+  };
+  var ch = function () {
+    if (ty === "fra" || hurt) return;
+    if (A.chg === undefined) return Q("chg", "Une charge est possible sur un ennemi ?");
+    if (!A.chg) return;
+    var need = ty === "tir" ? 3 : f.charge === "always" ? 1 : 2;
+    if (bl) need = Math.max(1, need - 1);
+    if (a < need) return;
+    if (f.charge === "weak" && a < 3) {
+      if (A.weak === undefined) return Q("weak", "La cible est-elle blessée ou isolée ?");
+      if (!A.weak) return;
+    }
+    return R("Charger", "Charge la cible prioritaire (" + cacW + ").");
+  };
+  var steps = f.shoot === "first" ? [sh, ch] : [ch, sh];
+  for (var i = 0; i < steps.length; i++) { var x = steps[i](); if (x) return x; }
+  var mv = unitById[en.unitId].profile && unitById[en.unitId].profile.m ? " Mouvement : " + unitById[en.unitId].profile.m + "." : "";
+  return ty === "fra" || hurt ? R("Rester à couvert", (hurt ? "Blessée (Sang + Infection : " + w + ") : " : "") + "va vers le couvert le plus proche, loin des ennemis." + mv) : R("Avancer", "Vers : l’objectif de l’IA, sinon le couvert le plus proche, sinon l’ennemi le plus proche." + mv);
+}
+function soloOpts(o, v) {
+  return Object.keys(o).map(function (k) { return '<option value="' + k + '"' + (k === v ? " selected" : "") + ">" + esc(o[k]) + "</option>"; }).join("");
+}
+function soloPage() {
+  var bands = soloBands(), band = soloBand(), h = '<div class="solo">';
+  h += '<div class="panel"><h2>⚔ Mode solo — bande adverse (IA)</h2><div class="row"><select id="solo-sel"><option value="">— choisir une bande —</option>';
+  bands.forEach(function (x) { h += '<option value="' + esc(x.key) + '"' + (x.key === solo.sel ? " selected" : "") + ">" + esc(x.label) + "</option>"; });
+  h += '</select></div><div class="row"><span class="mut">Ou importer un JSON de bande :</span><input type="file" id="solo-file" accept=".json,application/json"></div>';
+  if (solo.msg) h += '<div class="imp-ok">' + esc(solo.msg) + "</div>";
+  if (band) {
+    var f = soloTemper(band.faction), ros = soloRoster(band);
+    h += '<p><b>' + esc(FACTIONS[band.faction].name) + "</b>" + (f.note ? ' <span class="mut">— ' + esc(f.note) + "</span>" : "") + "</p>";
+    h += '<div class="row"><span class="mut">Tempérament :</span>';
+    h += '<select class="solo-tp" data-k="retreat" data-fid="' + band.faction + '">' + soloOpts({ never: "Ne recule jamais", d6: "Recule sur 5-6 (1d6)", always: "Recule si en danger" }, f.retreat) + "</select>";
+    h += '<select class="solo-tp" data-k="charge" data-fid="' + band.faction + '">' + soloOpts({ always: "Charge dès que possible", aggro: "Charge si agressivité normale+", weak: "Charge si cible faible" }, f.charge) + "</select>";
+    h += '<select class="solo-tp" data-k="shoot" data-fid="' + band.faction + '">' + soloOpts({ first: "Tire avant de charger", after: "Charge avant de tirer" }, f.shoot) + "</select></div><ul>";
+    ros.forEach(function (en) {
+      var ty = soloType(en, solo.sel), ov = solo.over[solo.sel + ":" + en.uid] || "";
+      h += "<li><span><b>" + esc(en.name) + '</b> <span class="mut">' + esc(unitById[en.unitId].name) + "</span></span>";
+      h += '<select class="solo-ov" data-uid="' + en.uid + '"><option value=""' + (ov ? "" : " selected") + ">Auto : " + SOLO_T[soloType(en, "x:none")] + "</option>" + soloOpts(SOLO_T, ov) + "</select></li>";
+    });
+    h += "</ul></div>";
+    var left = ros.filter(function (e) { return solo.done.indexOf(e.uid) < 0; });
+    h += '<div class="panel"><h2>Round</h2><div class="row"><button class="btn amber" data-act="solo-round">Nouveau round</button><button class="btn" data-act="solo-obj">Objectif de l’IA</button><button class="btn" data-act="solo-reset" title="Remet à zéro round, objectif et marqueurs">Réinitialiser la partie</button></div>';
+    h += "<p>" + (solo.ag ? "Agressivité : <b>" + SOLO_AG[solo.ag] + '</b> <span class="mut">(dé ' + solo.agr + ")</span>" : '<span class="mut">Lance un round pour tirer l’agressivité.</span>') + (solo.obj ? "<br>Objectif : <b>" + esc(solo.obj) + "</b>" : "") + "</p>";
+    if (solo.cur === null) {
+      h += '<div class="row"><button class="btn amber" data-act="solo-rand"' + (left.length ? "" : " disabled") + ">Figurine au hasard</button></div><ul>";
+      ros.forEach(function (e) {
+        var dn = solo.done.indexOf(e.uid) >= 0;
+        h += "<li><span><b>" + esc(e.name) + "</b><br>" + soloMkHtml(e) + '</span><button class="btn" data-act="solo-pick" data-uid="' + e.uid + '"' + (dn ? " disabled" : "") + ">" + (dn ? "✔ Fait" : "Activer") + "</button></li>";
+      });
+      h += "</ul>" + (ros.length && !left.length ? '<p class="mut">Toutes les figurines ont agi.</p>' : "");
+    }
+    h += "</div>";
+    if (solo.cur !== null) {
+      var cu = ros.filter(function (e) { return e.uid === solo.cur; })[0];
+      if (cu) {
+        var x = soloDecide(cu, band);
+        h += '<div class="panel"><h2>Activation : ' + esc(cu.name) + '</h2><div class="row">' + soloMkHtml(cu) + "</div>";
+        solo.note.forEach(function (n) { h += '<p class="mut">⚑ ' + esc(n) + "</p>"; });
+        if (x.q) h += '<p class="big">' + x.t + '</p><button class="btn amber" data-act="solo-ans" data-k="' + x.q + '" data-v="1">Oui</button> <button class="btn" data-act="solo-ans" data-k="' + x.q + '" data-v="0">Non</button>';
+        else h += '<div class="res"><p class="big">' + x.r + "</p><p>" + esc(x.d) + '</p><p class="mut">Cible prioritaire : 1) blessée 2) la plus proche 3) la plus dangereuse 4) égalité : 1d6 pair/impair.</p>' + (soloTemper(band.faction).spend && soloMk(cu).blood > 0 ? '<p class="mut">Sang : dépense les marqueurs dès qu’ils donnent un avantage.</p>' : "") + '</div><button class="btn amber" data-act="solo-end">Terminer l’activation</button>';
+        h += ' <button class="btn" data-act="solo-cancel">Annuler</button></div>';
+      }
+    }
+  } else h += '<p class="mut">Choisis ou importe une bande pour lancer la partie.</p></div>';
+  return h + "</div>";
+}
+function soloImport(text) {
+  var res = parseImport(text);
+  if (res.error) { solo.msg = res.error; render(); return; }
+  var first = null;
+  res.bands.forEach(function (b) {
+    var idx = -1;
+    solo.imported.forEach(function (x, i) { if (x.name === b.name) idx = i; });
+    if (idx < 0) { solo.imported.push(b); idx = solo.imported.length - 1; } else solo.imported[idx] = b;
+    if (first === null) first = idx;
+  });
+  solo.sel = "i:" + first; solo.done = []; solo.cur = null; solo.A = {};
+  solo.msg = "✔ " + res.bands.length + " bande(s) importée(s)." + (res.skipped ? " " + res.skipped + " figurine(s) inconnue(s) ignorée(s)." : "");
+  soloSave(); render();
+}
+document.addEventListener("change", function (ev) {
+  var t = ev.target;
+  if (!t) return;
+  if (t.id === "solo-sel") { solo.sel = t.value; solo.done = []; solo.cur = null; solo.A = {}; solo.msg = ""; soloSave(); render(); }
+  else if (t.id === "solo-file" && t.files && t.files[0]) {
+    var fr = new FileReader();
+    fr.onload = function () { soloImport(String(fr.result)); };
+    fr.readAsText(t.files[0]);
+  } else if (t.className === "solo-ov") {
+    var k = solo.sel + ":" + t.getAttribute("data-uid");
+    if (t.value) solo.over[k] = t.value; else delete solo.over[k];
+    soloSave(); render();
+  } else if (t.className === "solo-tp") {
+    var fid = t.getAttribute("data-fid");
+    solo.temper[fid] = solo.temper[fid] || {};
+    solo.temper[fid][t.getAttribute("data-k")] = t.value;
+    soloSave(); render();
+  }
+});
+
 // ================= DÉMARRAGE =================
 try {
   var fb = document.getElementById("js-fallback");
@@ -3660,6 +3910,7 @@ try {
 } catch (e0) {}
 try {
   load();
+  soloLoad();
   render();
 } catch (err) {
   try {
